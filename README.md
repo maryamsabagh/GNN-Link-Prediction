@@ -35,7 +35,6 @@ This project studies message passing neural networks (MPNNs), a family of GNNs t
 | `train_and_test.py` | Training loop, evaluation function and ROC-AUC metric. |
 | `recall_measurement.py` | Recall@K evaluation. |
 | `graph_analyzer.py` | Helpers for degree statistics and plots. |
-| `link_testing.ipynb` | Notebook for interactive experiments. |
 | `data/` | Spotify Million Playlist Dataset slices (`mpd.slice.*.json`). |
 | `30core_first_30.pkl`, `amazon_26core.pkl` | Cached k-core graphs, so they don't have to be rebuilt every run. |
 | `amazon_example/` | The Amazon dataset plus a reference copy of the original LightGCN implementation (`Light_GCN_Git_Clone/`). |
