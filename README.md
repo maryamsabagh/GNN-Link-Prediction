@@ -5,13 +5,13 @@ Link prediction and recommendation on bipartite graphs with graph neural network
 - **Spotify:** a playlist–track graph built from the Spotify Million Playlist Dataset.
 - **Amazon:** a user–item graph from the Amazon-Book data used in the LightGCN paper.
 
-This project studies message passing neural networks (MPNNs), a family of GNNs that works well for recommendation and link prediction. It combines structural analysis of the graphs with experiments. Starting from a LightGCN-style model, we swap in different message-passing layers (LightGCN, GraphSAGE, Chebyshev and GAT convolutions) and train each one with Bayesian Personalized Ranking (BPR) loss and controlled negative sampling. The task is to recover hidden edges between the two node types. Every model runs on the same data splits, so the results can be compared directly.
+This project studies message passing neural networks (MPNNs), a family of GNNs that works well for recommendation and link prediction. It combines structural analysis of the graphs with experiments. Starting from a LightGCN-style model, we swap in different message-passing layers (LightGCN, GraphSAGE, and Chebyshev convolutions) and train each one with Bayesian Personalized Ranking (BPR) loss and controlled negative sampling. The task is to recover hidden edges between the two node types. Every model runs on the same data splits, so the results can be compared directly.
 
 ## How it works
 
 1. **Load the data.** For Spotify, read the playlist JSON files in `data/` into `Playlist` and `Track` objects. For Amazon, read the user–item lists in `amazon_example/amazon_data/`.
 2. **Build a bipartite graph.** Playlists (or users) are one type of node and tracks (or items) are the other. An edge means "this track is in this playlist" (or "this user interacted with this item").
-3. **Keep the dense core.** Take the k-core of the graph by repeatedly removing nodes with fewer than k connections. Spotify uses k = 30 and Amazon uses k = 26.
+3. **Keep the dense core.** Take the k-core of the graph by repeatedly removing nodes with fewer than k connections. Spotify uses k = 30 and Amazon uses k = 26. This helps filter out noise.
 4. **Optionally add artists (Spotify only).** Tracks can also be linked to their artists, which gives the model extra structure to pass messages through.
 5. **Split the edges** into train (70%), validation (15%) and test (15%) sets. The model has to recover the held-out edges.
 6. **Train a GNN** that learns an embedding vector for every node. A pair's score is the dot product of the two nodes' embeddings.
@@ -38,10 +38,8 @@ This project studies message passing neural networks (MPNNs), a family of GNNs t
 | `link_testing.ipynb` | Notebook for interactive experiments. |
 | `data/` | Spotify Million Playlist Dataset slices (`mpd.slice.*.json`). |
 | `30core_first_30.pkl`, `amazon_26core.pkl` | Cached k-core graphs, so they don't have to be rebuilt every run. |
-| `spotify_analysis/` | Saved Spotify training stats (`model_stats/`), embeddings, and notebooks and scripts for loss, ROC-AUC and recall plots. |
-| `amazon_analysis/` | Saved Amazon training stats (`a_model_stats/`), graph analysis notebooks and degree-distribution fits. |
 | `amazon_example/` | The Amazon dataset plus a reference copy of the original LightGCN implementation (`Light_GCN_Git_Clone/`). |
-| `model_embeddings/` | Node embeddings saved during training, one folder per model. |
+
 
 ## Main functions and classes
 
@@ -72,18 +70,14 @@ This project studies message passing neural networks (MPNNs), a family of GNNs t
 | `"LGC"` | LightGCN convolution (`LGConv`) |
 | `"SAGE"` | GraphSAGE (`SAGEConv`) |
 | `"CHEB"` | Chebyshev spectral convolution (`ChebConv`, K = 3) |
-| `"GAT"` | Graph attention (`GATConv`, 5 heads, plus a linear layer to combine them) |
 
-The model's name records its settings, for example `LGCN_SAGE_3_e64_nodes22110_`. That name is used for the saved stats and embeddings.
 
 Key methods:
 
 - **`get_embedding(edge_index)`**: runs message passing and returns every node's final embedding.
 - **`predict_link_embedding(embed, edge_label_index)`**: scores each pair as the dot product of its embeddings.
-- **`forward(...)`** / **`predict_link(...)`**: score edges directly from an edge index. `predict_link` can return probabilities or 0/1 predictions.
 - **`recommend(edge_index, src_index, dst_index, k)`**: returns the top-k highest-scoring destination nodes for each source node.
 - **`recommendation_loss(pos, neg, num_neg_edges, lambda_reg)`**: BPR loss via `BPRLoss`.
-- **`link_pred_loss(pred, label)`**: binary cross-entropy loss, as an alternative.
 
 ### Loss: `BPR_class.py`
 
@@ -106,7 +100,7 @@ Training needs examples of "no edge" to contrast with the real ones.
   4. computes the loss (`"BPR"` or `"BCE"`) and updates the model,
   5. evaluates on the validation set and prints train and validation loss and ROC-AUC.
 
-  It also computes validation recall@392 every 10 epochs and saves embeddings to `model_embeddings/` every 20 epochs. It returns a dictionary of statistics, which the main scripts save as `.pkl` files.
+ 
 - **`test(model, data, ...)`**: evaluates the model on a split without updating it and returns the loss and ROC-AUC.
 - **`metrics(labels, preds)`**: ROC-AUC, the probability that a real edge scores higher than a negative one.
 
@@ -166,11 +160,7 @@ To change the model, edit `conv_layer` in the script. To change the sampler, edi
 
 3. Explore the saved results with the notebooks in `spotify_analysis/` and `amazon_analysis/`.
 
-### Before you run
 
-- `main.py` has `reload = True` by default, so it loads the cached k-core graph from `30core_first_30.pkl`. Set it to `False` to rebuild the graph from the raw JSON files.
-- The saved stats go to `spotify_analysis/model_stats/<num_neg_edges>_neg/` (or `amazon_analysis/a_model_stats/...`). Make sure that subfolder exists before training.
-- Artist nodes are counted in the Spotify model's size, but the track–artist edges are commented out in `train_and_test.py`. Uncomment the `full_edge_indices` lines to train with artists.
 
 ## Acknowledgements
 
